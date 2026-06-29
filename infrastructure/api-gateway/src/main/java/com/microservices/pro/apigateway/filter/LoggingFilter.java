@@ -6,6 +6,9 @@ import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
 
 /**
  * LoggingFilter — Session 2, Lab 2A, Task 2.
@@ -17,20 +20,27 @@ import reactor.core.publisher.Mono;
 @Component
 public class LoggingFilter implements GlobalFilter, Ordered {
 
-    // TODO 1: Inject a Logger (SLF4J)
+    private static final Logger logger = LoggerFactory.getLogger(LoggingFilter.class);
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // TODO 2: Implement filter() method
-        //         - Log: method + path + remote address (pre-filter)
-        //         - Log: response status code (post-filter)
-        //         - Chain the filter correctly
-        return chain.filter(exchange);
+
+        logger.info(
+                "Incoming Request: {} {} from {}",
+                exchange.getRequest().getMethod(),
+                exchange.getRequest().getURI().getPath(),
+                exchange.getRequest().getRemoteAddress()
+        );
+
+        return chain.filter(exchange)
+                .then(Mono.fromRunnable(() -> {
+                    HttpStatusCode status = exchange.getResponse().getStatusCode();
+                    logger.info("Response Status: {}", status);
+                }));
     }
 
     @Override
     public int getOrder() {
-        // TODO 3: Return Ordered.HIGHEST_PRECEDENCE
-        return 0;
+        return Ordered.HIGHEST_PRECEDENCE;
     }
 }
