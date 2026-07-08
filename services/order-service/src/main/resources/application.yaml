@@ -46,3 +46,16 @@ resilience4j:
           - java.lang.RuntimeException   # only retry on these
         ignore-exceptions:
           - java.lang.IllegalArgumentException  # never retry on these
+
+  # Session 5 — added below
+  bulkhead:
+    instances:
+      paymentService:
+        max-concurrent-calls: 10    # max 10 simultaneous calls to Payment
+        max-wait-duration: 0ms      # do NOT wait — fail immediately if full
+
+  timelimiter:
+    instances:
+      paymentService:
+        timeout-duration: 2s         # fail if Payment takes > 2 seconds
+        cancel-running-future: true  # cancel the thread on timeout

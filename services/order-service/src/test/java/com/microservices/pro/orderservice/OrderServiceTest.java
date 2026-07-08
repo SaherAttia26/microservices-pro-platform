@@ -42,4 +42,48 @@ class OrderServiceTest {
         assertThat(fallback.getParameterTypes()[1]).isEqualTo(Throwable.class);
     }
 
+    @Test
+    void bulkheadFallback_returnsQueuedStatus_onBulkheadFullException() throws Exception {
+        OrderRequest request = new OrderRequest(new BigDecimal("100.00"));
+        // Built via the real public factory (verified against the
+        // resilience4j source: Bulkhead.ofDefaults(name) + the public
+        // static BulkheadFullException.createBulkheadFullException(Bulkhead)
+        // factory) rather than mocked — BulkheadFullException's constructor
+        // is private, so this is the only supported way to obtain a real
+        // instance outside the library itself.
+        io.github.resilience4j.bulkhead.Bulkhead bulkhead =
+                io.github.resilience4j.bulkhead.Bulkhead.ofDefaults("paymentService");
+        BulkheadFullException exception = BulkheadFullException.createBulkheadFullException(bulkhead);
+
+        CompletableFuture<OrderResponse> result = orderService.bulkheadFallback(request, exception);
+
+        assertThat(result.get().status()).isEqualTo("QUEUED");
+    }
+
+    @Test
+    void timeoutFallback_returnsPendingStatus_wrappedInCompletableFuture() throws Exception {
+        OrderRequest request = new OrderRequest(new BigDecimal("100.00"));
+        TimeoutException exception = new TimeoutException("Payment exceeded 2s limit");
+
+        CompletableFuture<OrderResponse> result = orderService.timeoutFallback(request, exception);
+
+        assertThat(result).isInstanceOf(CompletableFuture.class);
+        assertThat(result.get().status()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void createOrderAsync_hasAllFourResilienceAnnotations_inTheDocumentedOrder() throws NoSuchMethodException {
+        Method method = OrderService.class.getMethod("createOrderAsync", OrderRequest.class);
+
+        assertThat(method.getAnnotation(Bulkhead.class)).isNotNull();
+        assertThat(method.getAnnotation(TimeLimiter.class)).isNotNull();
+        assertThat(method.getAnnotation(CircuitBreaker.class)).isNotNull();
+        assertThat(method.getAnnotation(Retry.class)).isNotNull();
+
+        assertThat(method.getAnnotation(Bulkhead.class).name()).isEqualTo("paymentService");
+        assertThat(method.getAnnotation(TimeLimiter.class).name()).isEqualTo("paymentService");
+        assertThat(method.getAnnotation(CircuitBreaker.class).name()).isEqualTo("paymentService");
+        assertThat(method.getAnnotation(Retry.class).name()).isEqualTo("paymentService");
+    }
+
 }
