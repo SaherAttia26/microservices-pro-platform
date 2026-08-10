@@ -1,112 +1,155 @@
-# Microservices Professional Platform
+# Enterprise E-Commerce Microservices Platform
 
-**Microservices Course — Spring Boot & Spring Cloud, Professional Edition**
+Enterprise E-Commerce Microservices Platform
 
 
-This is the **Enterprise E-Commerce Platform** — the one system you build,
-session after session, from Session 1 to Session 29. There are no
-disconnected practice exercises here: every lab adds a real capability to
-this real platform.
+======================
 
-**Current scope of this repository: Sessions 1–2.** Services and
-infrastructure for later sessions (Order, Payment, Inventory, Notification,
-Kafka, Redis, Kubernetes, etc.) are added only in the session that teaches
-them — see `docs/architecture/platform-overview.md`.
+A Spring Boot / Spring Cloud microservices architecture consisting of a centralizedconfiguration server, a service discovery server, and business services.
+Architecture
+------------
 
----
+    .
+    ├── platform/
+    │   ├── config-server/        # Spring Cloud Config Server
+    │   └── discovery-server/      # Eureka Discovery Server
+    └── services/
+        └── product-service/       # Product business service
 
-## What's in here right now
+### Components
 
-| Module | Port | Added in | What it does |
-|---|---|---|---|
-| `infrastructure/eureka-server` | 8761 | Session 1 | Service discovery registry |
-| `infrastructure/config-server` | 8888 | Session 1 | Centralized configuration |
-| `services/product-service` | 8081 | Session 1 | Product catalogue REST API |
-| `infrastructure/api-gateway` | 8080 | Session 2 | Single entry point, routing |
+| Component            | Location                    | Purpose                                                                              |
+| -------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| **Config Server**    | `platform/config-server`    | Centralized externalized configuration, backed by a Git config repository            |
+| **Discovery Server** | `platform/discovery-server` | Eureka service registry for service discovery                                        |
+| **Product Service**  | `services/product-service`  | Business microservice; registers with Eureka and pulls config from the Config Server |
 
-## How you work in this repository
+Startup Order
+-------------
 
-1. **Fork** this repository to your own GitHub account.
-2. **Clone** your fork locally:
-   ```bash
-   git clone https://github.com/SayedBaladoh/microservices-pro-platform.git
-   cd microservices-pro-platform
-   ```
-3. **Lab** — open the lab for the current session in `docs/labs/` and
-   implement the TODOs you find in the code (search for `// TODO`).
-4. **Test** — run the unit tests for the module you're working on:
-   ```bash
-   cd services/product-service   # or whichever module
-   mvn test
-   ```
-   Your lab is not complete until `mvn test` is green.
-5. **Push** your work to your fork on the `main` branch:
-   ```bash
-   git add .
-   git commit -m "session-01: add-product-service-eureka-config"
-   git push origin main
-   ```
-6. **PR** (if your trainer asks for pull-request-based submission) — open a
-   pull request from your fork back to the shared classroom repository.
+Services must start in this order, as each depends on the previous one being available:
 
-Stuck? Compare your code against the `reference` branch — it contains the
-complete, working instructor implementation for everything currently in
-scope. See `docs/setup/github-workflow.md` for how to diff against it
-without merging it into your own work.
+1. **Config Server** — must be up first; other services fetch their configuration from it on boot
 
-## Running the platform locally
+2. **Discovery Server** — registers itself once the Config Server is reachable; provides the service registry
 
-See `docs/setup/local-setup.md` for full instructions. Quick version:
+3. **Product Service** (and any other business service) — registers with Eureka and resolves its config from the Config Server
 
-```bash
-docker compose up -d                       # starts PostgreSQL
-cd infrastructure/config-server && mvn spring-boot:run &
-cd infrastructure/eureka-server  && mvn spring-boot:run &
-cd services/product-service      && mvn spring-boot:run &
-cd infrastructure/api-gateway    && mvn spring-boot:run &
-```
+4. Config Server
 
-Then open:
-- Eureka dashboard: http://localhost:8761
-- Product Service via Gateway: http://localhost:8080/api/v1/products
+----------------
 
-## Commit message convention
+Spring Cloud Config Server that serves configuration to all other services from a remote Git repository.
 
-```
-session-NN: short-description-of-what-was-done
-```
+**Location:** `platform/config-server`
 
-Examples:
-```
-session-01: add-product-service-eureka-config
-session-02: add-api-gateway-with-product-route-and-logging-filter
-```
+### Configuration
 
-## Repository structure
+Set the Git config repo URI in `application.yml` (or `application.properties`):
+    spring:
+      cloud:
+        config:
+          server:
+            git:
+              uri: <your-config-repo-url>
+              default-label: main
 
-```
-microservices-pro-platform/
-├── docker-compose.yml          # PostgreSQL only — see note below
-├── docs/                       # Labs, setup guides, architecture notes
-├── infrastructure/
-│   ├── eureka-server/          # Session 1
-│   ├── config-server/          # Session 1
-│   └── api-gateway/            # Session 2
-└── services/
-    └── product-service/        # Session 1
-```
+### Run
 
-> **Why isn't PostgreSQL used by Product Service yet?** Product Service uses
-> an in-memory store through Session 2. PostgreSQL is included in
-> `docker-compose.yml` now because the Session 1 homework (optional, JPA +
-> PostgreSQL persistence) needs it ready to go — see
-> `docs/labs/session-01-lab-01.md`.
+    cd platform/config-server
+    ./mvnw spring-boot:run
 
-## Grading
+Runs on port: `8888`
 
-See `docs/grading/grading-rubric.md`. Each lab is scored: Feature 70% / Unit
-Tests 20% / Code Quality 10%.
+### Verify
 
----
+    curl http://localhost:8888/<application-name>/<profile>
 
-*Elsayed Baladoh · microservices-pro-platform*
+2. Discovery Server (Eureka)
+
+----------------------------
+
+Netflix Eureka server used by all other services to register and discover each other.
+
+**Location:** `platform/discovery-server`
+
+### Configuration
+
+`application.yml` should disable self-registration/fetching (since this _is_ the registry):
+    eureka:
+      client:
+        register-with-eureka: false
+        fetch-registry: false
+
+### Run
+
+    cd platform/discovery-server
+    ./mvnw spring-boot:run
+
+Runs on port: `8761`
+
+### Verify
+
+Open the Eureka dashboard: `http://localhost:8761`
+
+3. Product Service
+
+------------------
+
+Business microservice that fetches its configuration from the Config Server and registers itself with Eureka.
+
+**Location:** `services/product-service`
+
+### Configuration
+
+`bootstrap.yml` / `application.yml` points to the Config Server:
+    spring:
+      application:
+        name: product-service
+      cloud:
+        config:
+          uri: http://localhost:8888
+
+    eureka:
+      client:
+        service-url:
+          defaultZone: http://localhost:8761/eureka/
+
+### Run
+
+    cd services/product-service
+    ./mvnw spring-boot:run
+
+Runs on port: `8081`
+
+### Verify
+
+* Confirm registration in the Eureka dashboard (`http://localhost:8761`)
+* Hit a sample endpoint, e.g. `http://localhost:8081/api/products`
+
+Local Development — Quick Start
+-------------------------------
+
+    # 1. Config Server
+    cd platform/config-server && ./mvnw spring-boot:run &
+    
+    # 2. Discovery Server
+    cd platform/discovery-server && ./mvnw spring-boot:run &
+    
+    # 3. Product Service
+    cd services/product-service && ./mvnw spring-boot:run &
+
+Wait for each service to fully start before starting the next (or add health-check retriesin your startup script).
+Requirements
+------------
+
+* Java 17+
+* Maven (or the included `mvnw` wrapper)
+* Access to the Git config repository used by the Config Server
+
+Tech Stack
+----------
+
+* Spring Boot
+* Spring Cloud Config (Server)
+* Spring Cloud Netflix Eureka (Discovery Server / Client)

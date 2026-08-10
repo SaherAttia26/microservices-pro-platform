@@ -8,7 +8,7 @@
 		<version>3.5.16</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.microservices.pro</groupId>
+	<groupId>com.raya</groupId>
 	<artifactId>payment-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
@@ -52,6 +52,10 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
+		</dependency>
+		<dependency> 
+			<groupId>org.springframework.kafka</groupId> 
+			<artifactId>spring-kafka</artifactId> 
 		</dependency>
 	</dependencies>
 	<dependencyManagement>
