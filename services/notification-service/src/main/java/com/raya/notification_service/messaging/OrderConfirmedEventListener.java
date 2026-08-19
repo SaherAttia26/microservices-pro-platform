@@ -6,6 +6,11 @@ import com.raya.notification_service.event.OrderConfirmedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.DltHandler;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,10 +20,13 @@ public class OrderConfirmedEventListener {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @KafkaListener(
-            topics = "order-notification",
-            groupId = "notification-service-confirmed"
+    @RetryableTopic(
+            attempts = "3",
+            backoff = @Backoff(delay = 1000, multiplier = 2.0),
+            dltTopicSuffix = ".DLT",
+            autoCreateTopics = "false"
     )
+    @KafkaListener(topics = "order-notification", groupId = "notification-service-confirmed")
     public void handle(String rawEvent) {
 
         try {
@@ -48,7 +56,13 @@ public class OrderConfirmedEventListener {
                     )
             );
         } catch (Exception e) {
-            log.error("Failed to process order-confirmed event: {}", rawEvent, e);
+            throw new IllegalStateException("Failed to process order-confirmed event: " + rawEvent, e);
         }
+    }
+
+    @DltHandler
+    public void handleDlt(String rawEvent, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        log.error("[NOTIFICATION] DLT: event from '{}' exhausted all retries. Manual intervention required. Event: {}",
+                topic, rawEvent);
     }
 }

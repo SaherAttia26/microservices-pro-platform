@@ -7,3 +7,10 @@ spring:
 eureka:
   instance:
     prefer-ip-address: true
+
+management:
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
