@@ -7,17 +7,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://keycloak:8090/realms/ecommerce-platform
-      client:
-        registration:
-          api-gateway:
-            provider: keycloak
-            client-id: api-gateway
-            client-secret: ${KEYCLOAK_CLIENT_SECRET}
-            authorization-grant-type: client_credentials
-        provider:
-          keycloak:
-            token-uri: http://keycloak:8080/realms/ecommerce-platform/protocol/openid-connect/token
+          jwk-set-uri: http://keycloak:8080/realms/ecommerce-platform/protocol/openid-connect/certs
 
 eureka:
   instance:
