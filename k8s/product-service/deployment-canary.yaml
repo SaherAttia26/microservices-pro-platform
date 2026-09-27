@@ -8,22 +8,28 @@ spec:
   selector:
     matchLabels:
       app: product-service
-      track: canary
+      version: canary
   template:
     metadata:
       labels:
         app: product-service
-        track: canary
+        version: canary
     spec:
       containers:
         - name: product-service
-          # Replace with the candidate image SHA before syncing the canary.
-          image: ghcr.io/saherattia26/microservices-pro-platform/product-service:sha-REPLACE_ME
+          image: ghcr.io/org/product-service:sha-NEW
           ports:
             - containerPort: 8081
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           envFrom:
             - configMapRef:
-                name: product-service-config
+                name: product-config
           env:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -44,10 +50,3 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 5
             failureThreshold: 3
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi

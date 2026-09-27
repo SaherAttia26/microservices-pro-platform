@@ -37,8 +37,6 @@ public class Product implements Serializable {
     @NotBlank
     private String category;
 
-    private String status = "ACTIVE";
-
     public Product() {
     }
 
@@ -97,14 +95,6 @@ public class Product implements Serializable {
         this.category = category;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
     // Compatibility methods for record-style accessors
     public Long id() {
         return id;
@@ -138,4 +128,4 @@ public class Product implements Serializable {
     public int hashCode() {
         return Objects.hash(id);
     }
-}
+}

@@ -1,10 +1,11 @@
 package com.raya.order_service.saga.command;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-public record ReserveInventoryCommand(String orderId, String productId, int quantity) {
-    @JsonProperty("commandType")
-    public String commandType() {
-        return "RESERVE_INVENTORY";
-    }
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+public record ReserveInventoryCommand(
+        String orderId,
+        String productId,
+        int quantity
+) {
 }

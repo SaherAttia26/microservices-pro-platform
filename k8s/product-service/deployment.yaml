@@ -4,26 +4,32 @@ metadata:
   name: product-service
   namespace: ecommerce
 spec:
-  replicas: 8
+  replicas: 2
   selector:
     matchLabels:
       app: product-service
-      track: stable
+      version: stable
   template:
     metadata:
       labels:
         app: product-service
-        track: stable
+        version: stable
     spec:
       containers:
         - name: product-service
-          # Update this immutable SHA tag from the Session 13 CI output.
-          image: ghcr.io/saherattia26/microservices-pro-platform/product-service:sha-REPLACE_ME
+          image: ghcr.io/org/product-service:sha-abc1234
           ports:
             - containerPort: 8081
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           envFrom:
             - configMapRef:
-                name: product-service-config
+                name: product-config
           env:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -44,10 +50,3 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 5
             failureThreshold: 3
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi

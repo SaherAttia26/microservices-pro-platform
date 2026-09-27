@@ -2,6 +2,7 @@ package com.raya.order_service.service;
 
 import com.raya.order_service.dto.OrderRequest;
 import com.raya.order_service.dto.OrderResponse;
+import com.raya.order_service.messaging.OrderEventPublisher;
 import com.raya.order_service.model.Order;
 import com.raya.order_service.model.OrderStatus;
 import com.raya.order_service.repository.OrderRepository;
@@ -27,7 +28,19 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
 
     @Mock
+    private com.raya.order_service.repository.OutboxRepository outboxRepository;
+
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @Mock
     private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+
+    // OrderSagaEventHandler publishes OrderConfirmedEvent on the happy path.
+    // Without a mock declared here @InjectMocks leaves the field null and the
+    // confirmation test NPEs.
+    @Mock
+    private OrderEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderService orderService;
@@ -55,19 +68,20 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_publishesOrderPlacedEvent() {
+    void createOrder_publishesOrderPlacedEvent() throws Exception {
+        org.mockito.Mockito.when(objectMapper.writeValueAsString(any())).thenReturn("{\"payload\":\"test\"}");
+
         OrderResponse response = orderService.createOrder(sampleRequest());
 
-        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(topicCaptor.capture(), any(), eventCaptor.capture());
+        ArgumentCaptor<com.raya.order_service.model.OutboxEvent> outboxCaptor = ArgumentCaptor.forClass(com.raya.order_service.model.OutboxEvent.class);
+        verify(outboxRepository).save(outboxCaptor.capture());
 
-        assertThat(topicCaptor.getValue()).isEqualTo("order-events");
-        assertThat(eventCaptor.getValue()).isInstanceOf(com.raya.order_service.saga.event.OrderPlacedEvent.class);
-        var event = (com.raya.order_service.saga.event.OrderPlacedEvent) eventCaptor.getValue();
-        assertThat(event.orderId()).isEqualTo(response.orderId());
-        assertThat(event.productId()).isEqualTo("PROD-001");
-        assertThat(event.quantity()).isEqualTo(3);
+        var event = outboxCaptor.getValue();
+        assertThat(event.getAggregateType()).isEqualTo("Order");
+        assertThat(event.getEventType()).isEqualTo("OrderPlacedEvent");
+        assertThat(event.getAggregateId()).isEqualTo(response.orderId());
+        assertThat(event.getPayload()).isEqualTo("{\"payload\":\"test\"}");
+        assertThat(event.isPublished()).isFalse();
     }
 
     // ── OrderSagaEventHandler (final saga outcomes) ──────────────────────

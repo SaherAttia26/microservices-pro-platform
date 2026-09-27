@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/SaherAttia26/microservices-pro-platform.git
+    repoURL: https://github.com/org/microservices-pro-platform
     targetRevision: main
     path: k8s/product-service
   destination:

@@ -15,13 +15,35 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
 
+/**
+ * Lab 9B · Part 2 — Pact PROVIDER verification.
+ *
+ * Reads the contract order-service generated, replays each interaction against
+ * this service running for real on a random port, and compares the responses to
+ * what the consumer said it needs.
+ *
+ * Run order matters: the consumer test has to run first, because this test
+ * reads ../order-service/target/pacts. A `mvn clean` in order-service deletes
+ * that folder, so the sequence is
+ *   1. mvn test -pl … order-service   (writes the pact)
+ *   2. mvn test -pl … inventory-service (verifies it)
+ *
+ * To watch it catch a real break: rename "available" to "inStock" in
+ * StockCheckResponse. InventoryServiceTest and InventoryControllerTest stay
+ * green — they never look at the JSON — and this test fails with the missing
+ * field. That is the whole point of contract testing.
+ */
 @Provider("inventory-service")
 @PactFolder("../order-service/target/pacts")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {
-        "spring.cloud.config.enabled=false",
+        // Keep the verification hermetic: no Eureka registration, and no Kafka
+        // listeners trying to reach a broker that is not running under `mvn test`.
         "eureka.client.enabled=false",
-        "spring.kafka.listener.auto-startup=false"
+        "eureka.client.register-with-eureka=false",
+        "eureka.client.fetch-registry=false",
+        "spring.kafka.listener.auto-startup=false",
+        "spring.cloud.config.enabled=false"
 })
 class InventoryServicePactVerificationTest {
 
@@ -38,12 +60,25 @@ class InventoryServicePactVerificationTest {
 
     @TestTemplate
     @ExtendWith(PactVerificationInvocationContextProvider.class)
-    void verifyPact(PactVerificationContext context) {
+    void pactVerificationTestTemplate(PactVerificationContext context) {
         context.verifyInteraction();
     }
 
+    /** Matches given("PROD-001 has 100 units in stock") in the consumer test. */
     @State("PROD-001 has 100 units in stock")
-    void productHasExpectedStock() {
+    void prod001HasOneHundredUnits() {
         inventoryService.resetStock("PROD-001", 100, 0);
+    }
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
+        public org.springframework.security.web.SecurityFilterChain testSecurityFilterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http.securityMatcher("/**")
+                .csrf(org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
     }
 }

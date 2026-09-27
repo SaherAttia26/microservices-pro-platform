@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: "optional:configserver:http://localhost:8888"
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8090/realms/ecommerce-platform
+
+eureka:
+  instance:
+    prefer-ip-address: true
+
+gateway:
+  public-routes:
+    - method: POST
+      path: /api/auth/login
+    - method: POST
+      path: /api/auth/register
+    - method: GET
+      path: /actuator/**
+    - method: GET
+      path: /api/v1/products/**

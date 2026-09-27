@@ -1,6 +1,5 @@
 package com.raya.order_service.saga;
 
-/** States owned by the Session 12 orchestration saga. */
 public enum SagaState {
     STARTED,
     INVENTORY_RESERVING,
